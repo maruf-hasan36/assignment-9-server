@@ -154,7 +154,7 @@ async function run() {
       res.send(result);
     });
 
-    //comments  show in My Interactions
+    //comments  show in My Interaction
     app.get("/my-comments/:email", async (req, res) => {
       const { email } = req.params;
       const result = await commentCollection
