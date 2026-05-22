@@ -10,13 +10,7 @@ const app = express();
 const port = process.env.PORT;
 
 // middleware
-app.use(
-  cors({
-    origin: ["http://localhost:3000"],
-    credentials: true,
-  }),
-);
-
+app.use(cors());
 app.use(express.json());
 
 const uri = process.env.MONGODB_URI;
@@ -53,9 +47,7 @@ const verifyToken = async (req, res, next) => {
 
   try {
     const { payload } = await jwtVerify(token, JWKS);
-
-    // IMPORTANT CHANGE
-    req.user = payload;
+    console.log(payload);
 
     next();
   } catch (error) {
@@ -74,6 +66,9 @@ async function run() {
     const db = client.db("ideaVaultAll");
     const ideaCollection = db.collection("ideas");
     const commentCollection = db.collection("comments");
+    // Connect the client to the server	(optional starting in v4.7)
+    // Send a ping to confirm a successful connection
+    // await client.db("admin").command({ ping: 1 });
 
     // all data get kora
     app.get("/ideas", async (req, res) => {
@@ -82,7 +77,7 @@ async function run() {
 
         let query = {};
 
-        // Search by title (case-insensitive)
+        //  Search by title (case-insensitive)
         if (search) {
           query.title = {
             $regex: search,
@@ -90,7 +85,7 @@ async function run() {
           };
         }
 
-        // Category filter
+        //  Category filter
         if (category) {
           query.category = category;
         }
@@ -101,169 +96,73 @@ async function run() {
         res.status(500).send({ message: error.message });
       }
     });
-
-    // Trending Ideas Section
+    //Trending Ideas Section
     app.get("/tending", async (req, res) => {
       const result = await ideaCollection
         .find()
         .sort({ estimatedBudget: -1 })
         .limit(6)
         .toArray();
-
       res.json(result);
     });
-
-    // detail page
+    // detisl page
     app.get("/ideas/:ideasId", verifyToken, async (req, res) => {
       const { ideasId } = req.params;
-
       const result = await ideaCollection.findOne({
         _id: new ObjectId(ideasId),
       });
-
       res.json(result);
     });
 
-    // DELETE COMMENT
-    app.delete("/comments/:id", verifyToken, async (req, res) => {
-      try {
-        const { id } = req.params;
-
-        // invalid object id check
-        if (!ObjectId.isValid(id)) {
-          return res.status(400).send({
-            message: "Invalid comment id",
-          });
-        }
-
-        // comment find
-        const comment = await commentCollection.findOne({
-          _id: new ObjectId(id),
-        });
-
-        if (!comment) {
-          return res.status(404).send({
-            message: "Comment not found",
-          });
-        }
-
-        // owner verify
-        if (comment.userEmail !== req.user.email) {
-          return res.status(403).send({
-            message: "Forbidden access",
-          });
-        }
-
-        // delete comment
-        const result = await commentCollection.deleteOne({
-          _id: new ObjectId(id),
-        });
-
-        res.send(result);
-      } catch (error) {
-        console.log(error);
-
-        res.status(500).send({
-          message: error.message,
-        });
-      }
-    });
-
+    // Ideas data cereate kora
     app.post("/ideas", async (req, res) => {
       const ideaCereat = req.body;
-
       const result = await ideaCollection.insertOne(ideaCereat);
-
       res.json(result);
     });
-
-    // My Ideas GET Route
+    //My Ideas GET Route
     app.get("/my-ideas/:email", verifyToken, async (req, res) => {
       const { email } = req.params;
-
       const result = await ideaCollection.find({ userEmail: email }).toArray();
-
       res.send(result);
     });
 
-    // DELETE IDEA
-    app.delete("/ideas/:ideasId", verifyToken, async (req, res) => {
-      try {
-        const { ideasId } = req.params;
-
-        // invalid object id check
-        if (!ObjectId.isValid(ideasId)) {
-          return res.status(400).send({
-            message: "Invalid idea id",
-          });
-        }
-
-        // idea find
-        const idea = await ideaCollection.findOne({
-          _id: new ObjectId(ideasId),
-        });
-
-        if (!idea) {
-          return res.status(404).send({
-            message: "Idea not found",
-          });
-        }
-
-        // owner verify
-        if (idea.userEmail !== req.user.email) {
-          return res.status(403).send({
-            message: "Forbidden access",
-          });
-        }
-
-        // delete idea
-        const result = await ideaCollection.deleteOne({
-          _id: new ObjectId(ideasId),
-        });
-
-        res.send(result);
-      } catch (error) {
-        console.log(error);
-
-        res.status(500).send({
-          message: error.message,
-        });
-      }
+    ////My Ideas deleted kora
+    app.delete("/ideas/:ideasId", async (req, res) => {
+      const { ideasId } = req.params;
+      const result = await ideaCollection.deleteOne({
+        _id: new ObjectId(ideasId),
+      });
+      res.send(result);
     });
 
     // Update my idea
     app.patch("/ideas/:id", async (req, res) => {
       const { id } = req.params;
       const updatedData = req.body;
-
       const result = await ideaCollection.updateOne(
         { _id: new ObjectId(id) },
         {
           $set: updatedData,
         },
       );
-
       res.send(result);
     });
 
-    // comments add
+    //comments add
     app.post("/comments", verifyToken, async (req, res) => {
       const commentData = req.body;
-
       const result = await commentCollection.insertOne(commentData);
-
       res.send(result);
     });
 
-    // comments show in My Interaction
+    //comments  show in My Interactions
     app.get("/my-comments/:email", async (req, res) => {
       const { email } = req.params;
-
       const result = await commentCollection
         .find({ userEmail: email })
         .sort({ createdAt: -1 })
         .toArray();
-
       res.send(result);
     });
 
@@ -275,7 +174,6 @@ async function run() {
     // await client.close();
   }
 }
-
 run().catch(console.dir);
 
 app.get("/", (req, res) => {
